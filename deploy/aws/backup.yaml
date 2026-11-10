@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Daily, 35-day AWS Backup plan for Life EPM databases tagged for backup.
+
+Parameters:
+  BackupTagKey:
+    Type: String
+    Default: life-epm-backup
+    Description: Resource tag key used to select the production database.
+  BackupTagValue:
+    Type: String
+    Default: daily
+    Description: Resource tag value used to select the production database.
+
+Resources:
+  LifeEpmBackupVault:
+    Type: AWS::Backup::BackupVault
+    Properties:
+      BackupVaultName: life-epm-daily
+      BackupVaultTags:
+        Application: life-epm
+        Retention: 35-days
+
+  LifeEpmBackupPlan:
+    Type: AWS::Backup::BackupPlan
+    Properties:
+      BackupPlan:
+        BackupPlanName: life-epm-daily-35-days
+        BackupPlanRule:
+          - RuleName: daily-database-backup
+            TargetBackupVault: !Ref LifeEpmBackupVault
+            ScheduleExpression: "cron(0 2 * * ? *)"
+            StartWindowMinutes: 60
+            CompletionWindowMinutes: 360
+            Lifecycle:
+              DeleteAfterDays: 35
+
+  LifeEpmBackupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: backup.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup
+        - arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForRestores
+
+  LifeEpmBackupSelection:
+    Type: AWS::Backup::BackupSelection
+    Properties:
+      BackupPlanId: !GetAtt LifeEpmBackupPlan.BackupPlanId
+      BackupSelection:
+        SelectionName: life-epm-tagged-databases
+        IamRoleArn: !GetAtt LifeEpmBackupRole.Arn
+        ListOfTags:
+          - ConditionType: STRINGEQUALS
+            ConditionKey: !Ref BackupTagKey
+            ConditionValue: !Ref BackupTagValue
+
+Outputs:
+  BackupVaultName:
+    Description: Vault receiving the scheduled backups.
+    Value: !Ref LifeEpmBackupVault
+  BackupPlanId:
+    Description: Identifier of the daily backup plan.
+    Value: !GetAtt LifeEpmBackupPlan.BackupPlanId
