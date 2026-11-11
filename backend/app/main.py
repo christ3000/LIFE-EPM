@@ -75,7 +75,7 @@ def seed_demo_data(db: Session, church: Church, enabled: bool) -> int:
     return len(members)
 
 
-# Vérifie les secrets puis crée l'église et l'administrateur initiaux sans écraser un compte existant.
+# Vérifie les secrets puis crée l'église et l'administrateur initiaux.
 def bootstrap() -> None:
     settings = get_settings()
     if len(settings.jwt_secret) < 32:
@@ -106,6 +106,8 @@ def bootstrap() -> None:
                 )
             )
             logger.info("Bootstrap administrator created for church %s.", church.id)
+        elif existing_admin.must_change_password:
+            existing_admin.password_hash = hash_password(settings.bootstrap_admin_password)
         seed_demo_data(db, church, settings.demo_data_enabled)
         db.commit()
 

@@ -39,13 +39,40 @@ def test_admin_bootstrap_password_change_and_finance_rbac(client: TestClient) ->
     assert response.json()["must_change_password"] is True
     assert client.get("/api/members").status_code == 403
 
+    os.environ["BOOTSTRAP_ADMIN_PASSWORD"] = "replacement-test-password-2026"
+    from app.config import get_settings
+    from app.main import bootstrap
+
+    get_settings.cache_clear()
+    bootstrap()
+    client.post("/api/auth/logout")
+    assert client.post(
+        "/api/auth/login",
+        json={"username": "pasteur.bobou", "password": "initial-test-password-2026"},
+    ).status_code == 401
+    replacement_login = client.post(
+        "/api/auth/login",
+        json={"username": "pasteur.bobou", "password": "replacement-test-password-2026"},
+    )
+    assert replacement_login.status_code == 200
+    assert replacement_login.json()["must_change_password"] is True
+
     changed = client.post(
         "/api/auth/change-password",
-        json={"current_password": "initial-test-password-2026", "new_password": "permanent-test-password-2026"},
+        json={"current_password": "replacement-test-password-2026", "new_password": "permanent-test-password-2026"},
     )
     assert changed.status_code == 200
     assert changed.json()["must_change_password"] is False
     assert client.get("/api/finances").status_code == 200
+
+    os.environ["BOOTSTRAP_ADMIN_PASSWORD"] = "another-test-password-2026"
+    get_settings.cache_clear()
+    bootstrap()
+    client.post("/api/auth/logout")
+    assert client.post(
+        "/api/auth/login",
+        json={"username": "pasteur.bobou", "password": "permanent-test-password-2026"},
+    ).status_code == 200
 
     secretary = client.post(
         "/api/users",
