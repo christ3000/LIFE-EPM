@@ -402,6 +402,13 @@ def test_shepherd_cell_scope_limits_member_list_and_attendance(client: TestClien
     assert dashboard.json()["total_members"] == 1
     assert dashboard.json()["total_presence"] == 1
     assert dashboard.json()["total_absences"] == 0
+    monthly_trends = dashboard.json()["monthly_trends"]
+    assert len(monthly_trends) == 6
+    assert monthly_trends[-1]["attendance"] == 1
+    assert monthly_trends[-1]["absences"] == 0
+    assert monthly_trends[-1]["period"].endswith(str(datetime.now().year))
+    assert "income" not in monthly_trends[-1]
+    assert "expenses" not in monthly_trends[-1]
     assert "finance_month" not in dashboard.json()
     assert "finance_year" not in dashboard.json()
 

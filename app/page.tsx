@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
-  ArrowRight, CalendarDays, Check, Download,
+  ArrowRight, CalendarDays, Check, Download, Eye, EyeOff,
   ChevronDown, Church, CircleHelp, FileText, Heart, LayoutDashboard, LogOut, MapPin,
   Menu, MessageCircle, Plus, Search, Send, Settings, ShieldCheck, Users, Wallet, X,
 } from "lucide-react";
@@ -31,6 +31,23 @@ type DashboardData = {
   births_count?: number;
   finance_month?: RecordRow;
   finance_year?: RecordRow;
+  monthly_trends?: DashboardMonth[];
+};
+type DashboardMonth = {
+  label: string;
+  period: string;
+  new_members: number;
+  attendance: number;
+  absences: number;
+  income?: string;
+  expenses?: string;
+};
+type DashboardMetric = "attendance" | "absences" | "new_members" | "income" | "expenses";
+type DashboardSeries = {
+  key: DashboardMetric;
+  label: string;
+  color: "blue" | "green" | "orange" | "red";
+  formatValue: (value: number) => string;
 };
 type SummaryData = Record<string, number | string>;
 type FinancialTab = "operations" | "budgets";
@@ -605,7 +622,8 @@ function roleLabel(role: Role) { return ({ super_admin: "Super administrateur", 
 
 // Écrans de connexion et de changement obligatoire du mot de passe provisoire.
 function LoginScreen({ username, password, setUsername, setPassword, onSubmit, busy, error }: { username: string; password: string; setUsername: (value: string) => void; setPassword: (value: string) => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void; busy: boolean; error: string }) {
-  return <main className="auth-page"><section className="auth-card"><div className="brand auth-brand"><div className="brand-mark"><Church size={22} /></div><div><div className="brand-name">life<span>epm</span></div><div className="brand-caption">ÉGLISE PENTECÔTE MISSIONNAIRE</div></div></div><div className="auth-heading"><span className="eyebrow">BIENVENUE DANS VOTRE ESPACE</span><h1>Connectez-vous</h1><p>Gestion simplicité.</p></div>{error && <div className="alert error-alert" role="alert">{error}</div>}<form onSubmit={onSubmit} className="auth-form"><label className="form-field"><span>Identifiant</span><input autoComplete="username" required value={username} onChange={(event) => setUsername(event.target.value)} /></label><label className="form-field"><span>Mot de passe</span><input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></label><button className="button button-primary auth-submit" disabled={busy}>{busy ? "Connexion…" : "Se connecter"}<ArrowRight size={16} /></button></form><div className="auth-secure"><ShieldCheck size={15} />Connexion sécurisée · Église Pentecôte Missionnaire</div></section><div className="auth-decoration"><div className="auth-visual-top"><div className="brand-mark"><Church size={21} /></div><div><strong>life<span>epm</span></strong><small>ÉGLISE PENTECÔTE MISSIONNAIRE</small></div></div><div className="auth-cross" aria-hidden="true">✝</div><div className="auth-decoration-copy"><span>OBEISSANCE . SERVICE . AMOUR</span><strong>MISSIONNAIRE,<br />SERVONS CHRIST LE SEIGNEUR.</strong><p>Gestion centraliser et organisée dans un espace unique.</p><div className="auth-features"><div><Users size={18} /><span><strong>Gestion des fidéle</strong><small>Suivez les fidèles et les familles.</small></span></div><div><CalendarDays size={18} /><span><strong>Organisation des activitées</strong><small>Cultes, programmes et événements.</small></span></div><div><ShieldCheck size={18} /><span><strong>Un espace sécurisé</strong><small>Les informations selon votre rôle.</small></span></div></div></div><div className="auth-visual-footer">Life EPM <span /> Côte d’Ivoire</div></div></main>;
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  return <main className="auth-page"><section className="auth-card"><div className="brand auth-brand"><div className="brand-mark"><Church size={22} /></div><div><div className="brand-name">life<span>epm</span></div><div className="brand-caption">ÉGLISE PENTECÔTE MISSIONNAIRE</div></div></div><div className="auth-heading"><span className="eyebrow">BIENVENUE DANS VOTRE ESPACE</span><h1>Connectez-vous</h1><p>Gestion simplicité.</p></div>{error && <div className="alert error-alert" role="alert">{error}</div>}<form onSubmit={onSubmit} className="auth-form"><label className="form-field"><span>Identifiant</span><input autoComplete="username" required value={username} onChange={(event) => setUsername(event.target.value)} /></label><div className="form-field"><label htmlFor="login-password">Mot de passe</label><div className="auth-password-field"><input id="login-password" type={passwordVisible ? "text" : "password"} autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /><button type="button" className="auth-password-toggle" aria-label={passwordVisible ? "Masquer le mot de passe" : "Afficher le mot de passe"} aria-pressed={passwordVisible} onClick={() => setPasswordVisible((visible) => !visible)}>{passwordVisible ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></div><button className="button button-primary auth-submit" disabled={busy}>{busy ? "Connexion…" : "Se connecter"}<ArrowRight size={16} /></button></form><div className="auth-secure"><ShieldCheck size={15} />Connexion sécurisée · Église Pentecôte Missionnaire</div></section><div className="auth-decoration"><div className="auth-visual-top"><div className="brand-mark"><Church size={21} /></div><div><strong>life<span>epm</span></strong><small>ÉGLISE PENTECÔTE MISSIONNAIRE</small></div></div><div className="auth-cross" aria-hidden="true">✝</div><div className="auth-decoration-copy"><span>OBEISSANCE . SERVICE . AMOUR</span><strong>MISSIONNAIRE,<br />SERVONS CHRIST LE SEIGNEUR.</strong><p>Gestion centraliser et organisée dans un espace unique.</p><div className="auth-features"><div><Users size={18} /><span><strong>Gestion des fidéle</strong><small>Suivez les fidèles et les familles.</small></span></div><div><CalendarDays size={18} /><span><strong>Organisation des activitées</strong><small>Cultes, programmes et événements.</small></span></div><div><ShieldCheck size={18} /><span><strong>Un espace sécurisé</strong><small>Les informations selon votre rôle.</small></span></div></div></div><div className="auth-visual-footer">Life EPM <span /> Côte d’Ivoire</div></div></main>;
 }
 
 function PasswordScreen({ user, currentPassword, newPassword, setCurrentPassword, setNewPassword, onSubmit, busy, error }: { user: User; currentPassword: string; newPassword: string; setCurrentPassword: (value: string) => void; setNewPassword: (value: string) => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void; busy: boolean; error: string }) {
@@ -823,28 +841,28 @@ function Dashboard({ user, data, onNavigate }: { user: User; data: DashboardData
   const heading = roleHeadings[user.role];
   const stats: { label: string; value: string; icon: LucideIcon; tint: string }[] = user.role === "treasurer"
     ? [
-      { label: "Recettes du mois", value: `${Number(finances?.income ?? 0).toLocaleString("fr-FR")} XOF`, icon: Wallet, tint: "teal" },
-      { label: "Dépenses du mois", value: `${Number(finances?.expenses ?? 0).toLocaleString("fr-FR")} XOF`, icon: Wallet, tint: "red" },
+      { label: "Recettes du mois", value: `${Number(finances?.income ?? 0).toLocaleString("fr-FR")} XOF`, icon: Wallet, tint: "green" },
+      { label: "Dépenses du mois", value: `${Number(finances?.expenses ?? 0).toLocaleString("fr-FR")} XOF`, icon: Wallet, tint: "orange" },
       { label: "Produits prévus", value: `${Number(financialYear?.planned_products ?? 0).toLocaleString("fr-FR")} XOF`, icon: FileText, tint: "blue" },
       { label: "Charges prévues", value: `${Number(financialYear?.planned_charges ?? 0).toLocaleString("fr-FR")} XOF`, icon: FileText, tint: "red" },
     ]
     : user.role === "shepherd"
       ? [
         { label: "Fidèles du périmètre", value: text(data.total_members ?? 0), icon: Users, tint: "blue" },
-        { label: "Présences pointées", value: text(data.total_presence ?? 0), icon: Check, tint: "teal" },
+        { label: "Présences pointées", value: text(data.total_presence ?? 0), icon: Check, tint: "green" },
         { label: "Absences signalées", value: text(data.total_absences ?? 0), icon: X, tint: "red" },
       ]
       : user.role === "secretary"
         ? [
           { label: "Fidèles enregistrés", value: text(data.total_members ?? 0), icon: Users, tint: "blue" },
-          { label: "Nouveaux ce mois", value: text(data.new_members_this_month ?? 0), icon: Heart, tint: "red" },
-          { label: "Mariages suivis", value: text(data.marriages_count ?? 0), icon: Church, tint: "teal" },
-          { label: "Naissances enregistrées", value: text(data.births_count ?? 0), icon: Heart, tint: "blue" },
+          { label: "Nouveaux ce mois", value: text(data.new_members_this_month ?? 0), icon: Heart, tint: "green" },
+          { label: "Mariages suivis", value: text(data.marriages_count ?? 0), icon: Church, tint: "orange" },
+          { label: "Naissances enregistrées", value: text(data.births_count ?? 0), icon: Heart, tint: "red" },
         ]
         : [
           { label: "Fidèles enregistrés", value: text(data.total_members ?? 0), icon: Users, tint: "blue" },
-          { label: "Nouveaux ce mois", value: text(data.new_members_this_month ?? 0), icon: Heart, tint: "red" },
-          { label: "Sujets de prière", value: text(data.open_prayer_requests ?? 0), icon: ShieldCheck, tint: "teal" },
+          { label: "Nouveaux ce mois", value: text(data.new_members_this_month ?? 0), icon: Heart, tint: "green" },
+          { label: "Sujets de prière", value: text(data.open_prayer_requests ?? 0), icon: ShieldCheck, tint: "orange" },
           { label: "Cultes planifiés", value: text(data.total_services ?? 0), icon: CalendarDays, tint: "blue" },
         ];
   const quickLinks: { label: string; target: Section; icon: LucideIcon }[] = user.role === "treasurer"
@@ -856,15 +874,89 @@ function Dashboard({ user, data, onNavigate }: { user: User; data: DashboardData
         : [{ label: "Annuaire des fidèles", target: "fideles", icon: Users }, { label: "Cultes & programmes", target: "cultes", icon: CalendarDays }, { label: "Finances & budgets", target: "finances", icon: Wallet }, { label: "Paramètres de l'église", target: "parametres", icon: Settings }];
   const service = data.upcoming_service;
   const program = data.upcoming_program;
+  const monthlyTrends = data.monthly_trends ?? [];
+  const countFormatter = (value: number) => value.toLocaleString("fr-FR");
+  const currencyFormatter = (value: number) => `${value.toLocaleString("fr-FR")} XOF`;
+  const financeAccess = user.role === "super_admin" || user.role === "treasurer";
+  const trendCharts: { title: string; description: string; series: DashboardSeries[] }[] = [
+    {
+      title: "Présences aux cultes",
+      description: "Suivi des présences et absences enregistrées",
+      series: [
+        { key: "attendance", label: "Présences", color: "blue", formatValue: countFormatter },
+        { key: "absences", label: "Absences", color: "red", formatValue: countFormatter },
+      ],
+    },
+    financeAccess
+      ? {
+        title: "Mouvements financiers",
+        description: "Recettes et dépenses en XOF",
+        series: [
+          { key: "income", label: "Recettes", color: "green", formatValue: currencyFormatter },
+          { key: "expenses", label: "Dépenses", color: "orange", formatValue: currencyFormatter },
+        ],
+      }
+      : {
+        title: "Nouveaux fidèles",
+        description: "Inscriptions dans votre périmètre",
+        series: [{ key: "new_members", label: "Fidèles inscrits", color: "green", formatValue: countFormatter }],
+      },
+  ];
   return <><PageHeading eyebrow={heading.eyebrow} title={`Bienvenue, ${user.full_name}`} description={heading.description} />
     <section className="welcome-banner"><div className="welcome-copy"><span className="welcome-kicker">ÉGLISE PENTECÔTE MISSIONNAIRE · {roleLabel(user.role).toUpperCase()}</span><h2>{heading.welcome}<br /><span>Servir avec foi.</span></h2><p>Une communauté enracinée dans la foi, unie dans le service.</p><button className="banner-button" onClick={() => onNavigate(user.role === "treasurer" ? "finances" : "fideles")}>{user.role === "treasurer" ? "Ouvrir la trésorerie" : "Accéder aux fidèles"} <ArrowRight size={15} /></button></div><div className="banner-art" aria-hidden="true"><div className="art-sun" /><div className="art-cross"><span /><i /></div><div className="art-hill art-hill-back" /><div className="art-hill art-hill-front" /></div></section>
     <div className="section-title-row"><div><h2>{heading.focus}</h2><p>Indicateurs adaptés à votre niveau d'accès</p></div><span className="role-chip">{roleLabel(user.role)}</span></div>
     <section className="stats-grid">{stats.map(({ label, value, icon: Icon, tint }) => <article className="stat-card" key={label}><div className="stat-top"><span>{label}</span><span className={`stat-icon ${tint}`}><Icon size={17} /></span></div><div className="stat-value">{value}</div><div className="stat-foot"><span>Données actualisées</span></div></article>)}</section>
     {!!data.birthdays_today?.length && <section className="panel birthday-notice"><CalendarDays size={17} /><strong>Anniversaires aujourd'hui</strong><span>{data.birthdays_today.map((item) => item.name).join(" · ")}</span></section>}
+    <section className="dashboard-insights" aria-label="Graphiques du tableau de bord">
+      {trendCharts.map((chart) => <TrendChart key={chart.title} title={chart.title} description={chart.description} data={monthlyTrends} series={chart.series} />)}
+    </section>
     <div className="dashboard-grid"><ScheduleCard title="Prochain culte" item={service} empty="Aucun culte planifié." onClick={() => onNavigate("cultes")} /><ScheduleCard title="Prochain programme" item={program} empty="Aucun programme planifié." onClick={() => onNavigate("cultes")} />
     <section className="panel quick-actions"><div className="panel-heading"><div><h3>Accès rapide</h3><p>Raccourcis autorisés pour votre rôle</p></div></div>{quickLinks.map(({ label, target, icon: Icon }) => <button key={label} onClick={() => onNavigate(target)}><Icon size={17} /><span>{label}</span><ArrowRight size={14} /></button>)}</section></div>
     <footer className="page-footer"><span>Life EPM · Église Pentecôte Missionnaire</span><span><i className="online-dot" />Connecté à la base de données de l'église</span></footer>
   </>;
+}
+
+function TrendChart({ title, description, data, series }: { title: string; description: string; data: DashboardMonth[]; series: DashboardSeries[] }) {
+  const maxValue = Math.max(1, ...data.flatMap((month) => series.map(({ key }) => Number(month[key] ?? 0))));
+  const middleValue = Math.round(maxValue / 2);
+  const isFinancial = series.some(({ key }) => key === "income" || key === "expenses");
+  const axisFormatter = (value: number) => isFinancial
+    ? `${new Intl.NumberFormat("fr-FR", { notation: "compact", maximumFractionDigits: 1 }).format(value)} XOF`
+    : value.toLocaleString("fr-FR");
+
+  return <section className="panel dashboard-chart-card">
+    <div className="chart-heading">
+      <div><h3>{title}</h3><p>{description}</p></div>
+      <span className="chart-period">6 derniers mois</span>
+    </div>
+    <div className="chart-legend">{series.map((item) => <span key={item.key}><i className={`chart-legend-dot ${item.color}`} />{item.label}</span>)}</div>
+    {data.length
+      ? <div className="chart-plot">
+        <div className="chart-axis" aria-hidden="true"><span>{axisFormatter(maxValue)}</span><span>{axisFormatter(middleValue)}</span><span>0</span></div>
+        <div className="chart-columns">
+          {data.map((month) => <div className="chart-month" key={month.period}>
+            <div className="chart-bars" role="group" aria-label={`Données pour ${month.period}`}>
+              {series.map((item) => {
+                const value = Number(month[item.key] ?? 0);
+                const formatted = item.formatValue(value);
+                return <button
+                  type="button"
+                  className={`chart-bar ${item.color}${value === 0 ? " is-empty" : ""}`}
+                  style={{ height: `${value === 0 ? 0 : Math.max(6, value / maxValue * 100)}%` }}
+                  key={item.key}
+                  aria-label={`${month.period}, ${item.label} : ${formatted}`}
+                  title={`${month.period} — ${item.label} : ${formatted}`}
+                >
+                  <span className="chart-tooltip" aria-hidden="true"><strong>{month.period}</strong><span>{item.label} : {formatted}</span></span>
+                </button>;
+              })}
+            </div>
+            <span className="chart-month-label">{month.label}</span>
+          </div>)}
+        </div>
+      </div>
+      : <EmptyState label="Aucune donnée disponible pour cette période." />}
+  </section>;
 }
 
 function ScheduleCard({ title, item, empty, onClick }: { title: string; item?: RecordRow | null; empty: string; onClick: () => void }) {

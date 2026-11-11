@@ -68,6 +68,20 @@ logger = logging.getLogger("life_epm.routes")
 
 router = APIRouter(prefix="/api")
 MEMBER_ROLES = ("super_admin", "secretary", "treasurer", "shepherd")
+FRENCH_MONTHS = (
+    ("janv.", "janvier"),
+    ("févr.", "février"),
+    ("mars", "mars"),
+    ("avr.", "avril"),
+    ("mai", "mai"),
+    ("juin", "juin"),
+    ("juil.", "juillet"),
+    ("août", "août"),
+    ("sept.", "septembre"),
+    ("oct.", "octobre"),
+    ("nov.", "novembre"),
+    ("déc.", "décembre"),
+)
 MAX_CHURCH_LOGO_SIZE = 2 * 1024 * 1024
 CHURCH_LOGO_SIGNATURES = {
     "image/png": lambda data: data.startswith(b"\x89PNG\r\n\x1a\n"),
@@ -236,6 +250,28 @@ def update_church(
 def dashboard(user: User = Depends(require_roles(*MEMBER_ROLES)), db: Session = Depends(get_db)) -> dict:
     church_id = user.church_id
     today = date.today()
+    trend_months = []
+    for offset in range(5, -1, -1):
+        month_index = today.year * 12 + today.month - 1 - offset
+        year, month = divmod(month_index, 12)
+        month_start = date(year, month + 1, 1)
+        next_month_index = month_index + 1
+        next_year, next_month = divmod(next_month_index, 12)
+        trend_months.append((month_start, date(next_year, next_month + 1, 1)))
+    trend_start = trend_months[0][0]
+    trend_end = trend_months[-1][1]
+    monthly_trends = {
+        (month_start.year, month_start.month): {
+            "label": FRENCH_MONTHS[month_start.month - 1][0],
+            "period": f"{FRENCH_MONTHS[month_start.month - 1][1]} {month_start.year}",
+            "new_members": 0,
+            "attendance": 0,
+            "absences": 0,
+            "income": Decimal(0),
+            "expenses": Decimal(0),
+        }
+        for month_start, _ in trend_months
+    }
     member_filters = [Member.church_id == church_id]
     if user.role == "shepherd":
         if user.cell_id:
@@ -248,6 +284,31 @@ def dashboard(user: User = Depends(require_roles(*MEMBER_ROLES)), db: Session = 
     new_members = db.scalar(select(func.count(Member.id)).where(
         *member_filters, Member.arrival_date >= today.replace(day=1)
     )) or 0
+    member_arrivals = db.scalars(
+        select(Member.arrival_date).where(
+            *member_filters,
+            Member.arrival_date >= trend_start,
+            Member.arrival_date < trend_end,
+        )
+    )
+    for arrival_date in member_arrivals:
+        monthly_trends[(arrival_date.year, arrival_date.month)]["new_members"] += 1
+    trend_start_at = datetime.combine(trend_start, datetime.min.time(), tzinfo=timezone.utc)
+    trend_end_at = datetime.combine(trend_end, datetime.min.time(), tzinfo=timezone.utc)
+    monthly_attendance = db.execute(
+        select(ChurchService.starts_at, Attendance.present)
+        .join(ChurchService, Attendance.service_id == ChurchService.id)
+        .join(Member, Attendance.member_id == Member.id)
+        .where(
+            ChurchService.church_id == church_id,
+            *member_filters,
+            ChurchService.starts_at >= trend_start_at,
+            ChurchService.starts_at < trend_end_at,
+        )
+    )
+    for service_date, present in monthly_attendance:
+        month = monthly_trends[(service_date.year, service_date.month)]
+        month["attendance" if present else "absences"] += 1
     upcoming_filter = [ChurchService.church_id == church_id, ChurchService.starts_at >= datetime.now(timezone.utc)]
     upcoming_service = db.scalar(
         select(ChurchService).where(*upcoming_filter, ChurchService.service_group == "culte").order_by(ChurchService.starts_at).limit(1)
@@ -308,6 +369,18 @@ def dashboard(user: User = Depends(require_roles(*MEMBER_ROLES)), db: Session = 
         ],
     }
     if user.role in ("super_admin", "treasurer"):
+        transactions = db.execute(
+            select(FinanceTransaction.occurred_on, FinanceTransaction.direction, FinanceTransaction.amount).where(
+                FinanceTransaction.church_id == church_id,
+                FinanceTransaction.currency == "XOF",
+                FinanceTransaction.occurred_on >= trend_start,
+                FinanceTransaction.occurred_on < trend_end,
+            )
+        )
+        for occurred_on, direction, amount in transactions:
+            monthly_trends[(occurred_on.year, occurred_on.month)][
+                "income" if direction == "recette" else "expenses"
+            ] += amount
         start = today.replace(day=1)
         total_income = db.scalar(select(func.coalesce(func.sum(FinanceTransaction.amount), 0)).where(FinanceTransaction.church_id == church_id, FinanceTransaction.occurred_on >= start, FinanceTransaction.direction == "recette", FinanceTransaction.currency == "XOF")) or Decimal(0)
         total_expenses = db.scalar(select(func.coalesce(func.sum(FinanceTransaction.amount), 0)).where(FinanceTransaction.church_id == church_id, FinanceTransaction.occurred_on >= start, FinanceTransaction.direction == "depense", FinanceTransaction.currency == "XOF")) or Decimal(0)
@@ -316,6 +389,14 @@ def dashboard(user: User = Depends(require_roles(*MEMBER_ROLES)), db: Session = 
         planned_charges = db.scalar(select(func.coalesce(func.sum(BudgetLine.planned_amount), 0)).where(BudgetLine.church_id == church_id, BudgetLine.fiscal_year == fiscal_year, BudgetLine.budget_class == "charge")) or Decimal(0)
         result["finance_month"] = {"income": str(total_income), "expenses": str(total_expenses), "currency": "XOF"}
         result["finance_year"] = {"planned_products": str(planned_products), "planned_charges": str(planned_charges), "year": fiscal_year}
+    for month in monthly_trends.values():
+        if user.role in ("super_admin", "treasurer"):
+            month["income"] = str(month["income"])
+            month["expenses"] = str(month["expenses"])
+        else:
+            del month["income"]
+            del month["expenses"]
+    result["monthly_trends"] = list(monthly_trends.values())
     if user.role in ("super_admin", "secretary"):
         result["marriages_count"] = db.scalar(select(func.count(MarriageRecord.id)).where(MarriageRecord.church_id == church_id)) or 0
         result["births_count"] = db.scalar(select(func.count(BirthRecord.id)).where(BirthRecord.church_id == church_id)) or 0
