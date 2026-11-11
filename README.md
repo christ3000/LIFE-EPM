@@ -1,47 +1,26 @@
 # Life EPM
 
-Application de gestion pour l'Église Pentecôte Missionnaire. La pile comprend Next.js/React, Tailwind CSS, FastAPI, PostgreSQL, Alembic et Docker Compose. Redis/Celery traite les tâches en arrière-plan. L'adaptateur Africa's Talking pour les SMS est intégré mais reste désactivé tant que ses paramètres privés ne sont pas configurés.
+Application de gestion pour l'Église Pentecôte Missionnaire. La pile comprend Next.js/React, Tailwind CSS, FastAPI, PostgreSQL et Alembic. L'adaptateur Africa's Talking pour les SMS est intégré mais reste désactivé tant que ses paramètres privés ne sont pas configurés.
 
-## Démarrage avec Docker
+## Démarrage local
 
-1. Installer Docker Desktop et démarrer son moteur.
-2. Copier `.env.example` vers `.env` (`Copy-Item .env.example .env` dans PowerShell).
-3. Remplacer les secrets de `.env` par des valeurs uniques. Utiliser un mot de passe PostgreSQL hexadécimal de 64 caractères (pour qu'il soit sûr dans l'URL de connexion), un secret JWT aléatoire d'au moins 32 caractères et un mot de passe provisoire unique d'au moins 12 caractères pour le pasteur.
-4. Depuis la racine du projet :
+Prérequis : Python 3.12+, Node.js, npm et un service PostgreSQL local.
+
+1. Copier `.env.example` vers `.env` (`Copy-Item .env.example .env` dans PowerShell) si `.env` n'existe pas.
+2. Garder PostgreSQL configuré avec la base et l'utilisateur existants `life_epm`; définir un secret JWT aléatoire d'au moins 32 caractères et un mot de passe provisoire unique d'au moins 12 caractères. Si les identifiants PostgreSQL locaux diffèrent de ceux de `.env`, renseigner `DATABASE_URL` dans `.env` au format `postgresql+psycopg://life_epm:mot-de-passe@localhost:5432/life_epm`.
+3. Depuis la racine du projet, lancer le script qui applique les migrations et ouvre l'API et l'interface dans deux fenêtres PowerShell :
 
 ```powershell
-docker compose up --build
+.\scripts\start.ps1
 ```
 
 Ouvrir [http://localhost:3000](http://localhost:3000). L'API est disponible sur [http://localhost:8000](http://localhost:8000), et sa documentation de développement sur `/docs`.
 
-Le compte initial est nommé **Pasteur BOBOU Josué E.** ; son nom complet, son identifiant et son mot de passe provisoire sont lus depuis `.env` (`LIFE_EPM_ADMIN_FULL_NAME`, `LIFE_EPM_ADMIN_USERNAME`, `LIFE_EPM_ADMIN_PASSWORD`). Sur cet environnement, un mot de passe provisoire aléatoire a été généré localement : consultez la variable `LIFE_EPM_ADMIN_PASSWORD` du fichier `.env` pour vous connecter à `pasteur.bobou`. Le changement de mot de passe est obligatoire à la première connexion. Si le compte existe déjà mais que ce changement est toujours requis, le mot de passe provisoire défini dans `.env` est réappliqué au démarrage de l'API. Après cette correction, appliquez la configuration en lançant `docker compose up -d --build api`. Une fois le mot de passe changé, il n'est plus écrasé par la configuration. Aucun mot de passe administrateur n'est inclus dans le code ou l'image.
+Le compte initial est nommé **Pasteur BOBOU Josué E.** ; son nom complet, son identifiant et son mot de passe provisoire sont lus depuis `.env` (`LIFE_EPM_ADMIN_FULL_NAME`, `LIFE_EPM_ADMIN_USERNAME`, `LIFE_EPM_ADMIN_PASSWORD`). Le changement du mot de passe provisoire est obligatoire à la première connexion. Tant que ce changement est requis, la valeur de `.env` est réappliquée au démarrage; un mot de passe déjà changé n'est jamais écrasé.
 
-Pour arrêter les services sans supprimer les données :
+Pour arrêter l'application, fermer les deux fenêtres PowerShell. PostgreSQL conserve ses propres données.
 
-```powershell
-docker compose down
-```
-
-Le volume PostgreSQL est conservé. Ne lancez `docker compose down -v` que si vous voulez explicitement effacer les données locales. L'application web est disponible sur le port 3000; l'API sur le port 8000 est accessible uniquement depuis l'ordinateur hôte, et PostgreSQL reste uniquement accessible sur le réseau privé Docker.
-
-## Partager gratuitement l'application sur Internet
-
-Pour une démonstration, un tunnel Cloudflare temporaire peut exposer l'application sans ouvrir de port sur votre routeur :
-
-1. Dans `.env`, définir `LIFE_EPM_COOKIE_SECURE=true` et laisser `NEXT_PUBLIC_API_URL` vide.
-2. Démarrer les services depuis la racine du projet :
-
-```powershell
-docker compose --profile share up --build -d
-docker compose logs -f tunnel
-```
-
-Le journal du service `tunnel` affiche une adresse HTTPS `trycloudflare.com` à transmettre. Les utilisateurs doivent avoir leur propre compte dans l'application; ne partagez pas le compte administrateur.
-
-Cette option n'est pas un hébergement permanent : l'ordinateur, Docker et Internet doivent rester actifs. Le lien temporaire peut changer après un redémarrage. N'y stockez pas de données réelles sensibles; pour un usage durable avec les données de l'église, utilisez un hébergement géré avec domaine, HTTPS, sauvegardes et accès contrôlé. Arrêtez le tunnel avec `docker compose --profile share down`.
-
-## Développement sans conteneurs
+## Développement
 
 Terminal backend, depuis `backend` :
 
@@ -49,7 +28,7 @@ Terminal backend, depuis `backend` :
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
-$env:DATABASE_URL = "postgresql+psycopg://life_epm:VOTRE_MOT_DE_PASSE@localhost:5432/life_epm"
+$env:DATABASE_URL = "postgresql+psycopg://life_epm:YOUR_URL_ENCODED_PASSWORD@localhost:5432/life_epm"
 $env:JWT_SECRET = "un-secret-aleatoire-d-au-moins-32-caracteres"
 $env:BOOTSTRAP_ADMIN_PASSWORD = "un-mot-de-passe-provisoire-de-12-caracteres"
 alembic upgrade head
@@ -80,7 +59,7 @@ pytest
 
 ## Accès direct à toutes les pages
 
-Toutes les rubriques s'ouvrent dans l'application après connexion. Les liens ci-dessous ouvrent directement la rubrique demandée; ils ne contournent pas les permissions du compte. Si l'application est sur un autre ordinateur, remplacez `localhost:3000` par son adresse ou par le domaine du tunnel.
+Toutes les rubriques s'ouvrent dans l'application après connexion. Les liens ci-dessous ouvrent directement la rubrique demandée; ils ne contournent pas les permissions du compte. Si l'application est sur un autre ordinateur, remplacez `localhost:3000` par son adresse ou son nom de domaine.
 
 | Page | Accès direct | Où modifier l'écran |
 |---|---|---|
@@ -124,8 +103,7 @@ Les commentaires du code servent de repères supplémentaires. Pour modifier une
 | Connexion à PostgreSQL et sessions de requête | [backend/app/db.py](./backend/app/db.py). |
 | Structure HTML et titre du navigateur | [app/layout.tsx](./app/layout.tsx). |
 | Proxy web vers l'API | [next.config.ts](./next.config.ts). |
-| Services, ports, réseau et volume de données | [docker-compose.yml](./docker-compose.yml). |
-| Dépendances et construction des images | [Dockerfile.web](./Dockerfile.web) et [backend/Dockerfile](./backend/Dockerfile). |
+| Démarrage local et sauvegardes PostgreSQL | [scripts/](./scripts/) et [backend/alembic.ini](./backend/alembic.ini). |
 | Modifications de structure de base | Ajouter une nouvelle migration dans [backend/alembic/versions/](./backend/alembic/versions/); ne pas modifier une ancienne migration déjà appliquée. |
 | Tests de l'API | [backend/tests/test_api.py](./backend/tests/test_api.py); ajouter un test quand une route ou une permission change. |
 | Documentation générale et étapes d'installation | [README.md](./README.md). |
@@ -136,25 +114,13 @@ Les fenêtres de création, de pointage et de choix sont des formulaires modaux,
 
 ### Diagnostic rapide des erreurs
 
-Pour examiner les erreurs Docker depuis la racine du projet, afficher les journaux du service concerné :
+Pour diagnostiquer une erreur, consulter les messages affichés dans les fenêtres de l'API et de l'interface :
 
 ```powershell
-docker compose logs --tail=100 web
-docker compose logs --tail=100 api
-docker compose logs --tail=100 db
+Invoke-WebRequest http://localhost:8000/api/health
 ```
 
-Une erreur d'affichage se diagnostique généralement dans [app/page.tsx](./app/page.tsx) ou [app/globals.css](./app/globals.css); une réponse HTTP invalide dans [backend/app/routes.py](./backend/app/routes.py) ou [backend/app/schemas.py](./backend/app/schemas.py); une erreur de connexion dans les journaux `api` et `db`. Ne copiez pas de secrets du fichier `.env` dans les journaux ou dans un rapport partagé.
-
-Pour examiner les erreurs Docker depuis la racine du projet, afficher les journaux du service concerné :
-
-```powershell
-docker compose logs --tail=100 web
-docker compose logs --tail=100 api
-docker compose logs --tail=100 db
-```
-
-Une erreur d'affichage se diagnostique généralement dans `app/page.tsx` ou `app/globals.css`; une réponse HTTP invalide dans `backend/app/routes.py` ou `backend/app/schemas.py`; une erreur de connexion dans les journaux `api` et `db`. Ne copiez pas de secrets du fichier `.env` dans les journaux ou dans un rapport partagé.
+Une erreur d'affichage se diagnostique généralement dans [app/page.tsx](./app/page.tsx) ou [app/globals.css](./app/globals.css); une réponse HTTP invalide dans [backend/app/routes.py](./backend/app/routes.py) ou [backend/app/schemas.py](./backend/app/schemas.py). Les erreurs PostgreSQL apparaissent dans la fenêtre de l'API. Ne copiez pas de secrets du fichier `.env` dans un rapport partagé.
 
 ## Modules actuellement raccordés à l'API
 
@@ -190,7 +156,7 @@ Redémarrer l'API et le worker après la configuration. Les clés restent privé
 
 ### Sauvegardes
 
-- En local : `.\scripts\backup-postgres.ps1` crée un dump PostgreSQL au format custom dans `backups\`. Protéger ces fichiers comme des données personnelles et en conserver une copie hors de l'ordinateur.
+- En local : `.\scripts\backup-database.ps1` crée un dump PostgreSQL au format custom dans `backups\`. Protéger ces fichiers comme des données personnelles et en conserver une copie hors de l'ordinateur.
 - AWS : [deploy/aws/README.md](./deploy/aws/README.md) décrit le plan quotidien de 35 jours et les prérequis. Le modèle CloudFormation est limité au service AWS Backup; il ne déploie pas l'application.
 - Tester périodiquement la restauration dans une base temporaire séparée. Une sauvegarde qui n'a jamais été restaurée n'est pas vérifiée.
 

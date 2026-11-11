@@ -37,14 +37,10 @@ application data and Alembic revision, then delete the temporary instance after
 the test is signed off. Record the test date and outcome in the church's
 operations log.
 
-## Local Docker backup
+## Local database backup
 
-From the project root, run:
-
-```powershell
-.\scripts\backup-postgres.ps1
-```
-
-The script writes a timestamped custom-format dump to `backups\`. Store a copy
-outside the computer hosting Docker, protect it as sensitive church data, and
-periodically verify restoration in a separate test database.
+The local application uses PostgreSQL. From the project root, run
+`.\scripts\backup-database.ps1` to create a timestamped custom-format dump
+under `backups\`. The script reads the connection settings from `.env`. Protect
+backups as sensitive church data and periodically verify restoration in a
+separate test database.
